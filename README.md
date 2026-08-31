@@ -1,19 +1,99 @@
 # i兰 / iLAN
 
-面向校园服务文档的 Agentic RAG 与 GraphRAG 演示系统。项目覆盖文档入库、混合检索、本地开源重排、可引用问答、会话/组织记忆、异步 Worker、GraphRAG 图增强与 Graph off/on 离线评测。
+## 从 RAG 到记忆型、自进化 Agentic RAG
 
-> 本仓库不包含任何真实学校知识库、账号密钥、数据库卷、GraphRAG 运行产物或依赖私有语料的评测金标。`demo_data/` 中仅有一份项目自行编写的虚构示例文档。
+i兰（iLAN）是一个面向校园制度、办事流程与服务文档的知识服务系统，提供可追溯、可评测、可持续优化的智能问答能力。
 
-## 架构
+项目沿着一条清晰的工程主链条逐步演进：
 
 ```text
-Next.js Web → FastAPI / Python Harness → MongoDB（文档、向量、记忆）
-                                  ├── Redis Stream Worker（入库、评测、Loop）
-                                  ├── Neo4j（可选 GraphRAG 图投影）
-                                  └── pi-agent（受控 Agent 运行时）
+基础 RAG
+  ↓
+BM25 + 向量混合检索
+  ↓
+GraphRAG + Neo4j：扩充跨文档证据链
+  ↓
+Agentic RAG：意图识别、改写、检索、回答、校验、反思
+  ↓
+记忆系统 + Loop Engineering：反馈驱动的策略自进化
 ```
 
-GraphRAG 的线上适配位于 `backend/app/graph/`；Microsoft GraphRAG 的源码镜像位于 `third_party/microsoft-graphrag/`，仅供对照与离线构图参考，许可证见其 `LICENSE`。
+## 核心链路
+
+```text
+文档上传/解析 → 清洗、切片、元数据抽取、向量化
+        → BM25 + 向量检索 + Reranker
+        → Neo4j 图增强（可选）
+        → Python Harness / pi-agent Runtime
+        → Intent → Rewrite → Retrieval → Answer → Verify → Reflect
+        → 用户答案、原始文档引用、运行 Trace
+        → 反馈采集 → 记忆更新 → Skills / Hooks / Rules 优化
+```
+
+原有混合 RAG 始终是主体链路。GraphRAG 不替换普通检索，而是在 Neo4j 可用时，根据实体、关系和跨文档连接补充少量图证据，用于增强多文档、间接关系问题的证据链与可解释性。图服务不可用时，系统会明确记录并提示当前回答未经过图增强，安全回退到普通 RAG。
+
+## 项目演进
+
+### 1. 基础 RAG：先建立可靠检索链路
+
+- BM25 处理精确词和制度术语匹配。
+- 向量检索处理语义相似问题。
+- Reranker 对候选片段重新排序。
+- 回答引用原始文档片段，并进行引用正确性校验。
+
+### 2. GraphRAG：扩充证据链而不是制造黑盒答案
+
+项目引入 Microsoft GraphRAG 和 Neo4j，将文档中的实体、关系、文本单元和社区组织为知识图谱。在线链路保留原始 Chunk 作为最终可引用事实源，图谱只提供可回溯的扩展路径和补充证据。
+
+支持实体与关系扩展、跨文档证据连接、图路径记录、Neo4j 可视化，以及 Graph off/on 受控对照评测。
+
+### 3. Agentic RAG：把一次问答拆成可观察的协作流程
+
+Python Harness 和 pi-agent Runtime 协同完成 Intent、Rewrite、Retrieval、Answer、Verify、Reflect 等阶段。Python 侧负责权限、事实源、流程编排和策略约束；pi-agent 负责受控的 Agent loop、模型调用和工具调用。
+
+### 4. 记忆与自进化：让系统从反馈中改进
+
+iLAN 将不同生命周期和可信等级的知识分层管理：
+
+- **工作记忆**：当前会话上下文与短期任务状态
+- **情景记忆**：历史问答、反馈和运行事件
+- **用户记忆**：经用户同意保存的偏好与个人语义信息
+- **组织记忆**：绑定官方文档和部门范围的组织知识
+- **学习记忆**：可评测、可灰度、可回滚的 Skills、Hooks、Rules 和策略版本
+
+Loop Engineering 采用 `Execute → Observe → Reflect → Adapt → Deploy` 闭环：收集失败案例和用户反馈，分析根因，生成候选策略，在沙箱或灰度环境中验证后，再由管理员审核发布。“自进化”是可追踪、可回滚、有人机协同边界的工程闭环，而不是无约束地修改生产系统。
+
+## 主要能力
+
+- **混合检索**：BM25 + 向量检索 + 本地开源 BGE Reranker
+- **GraphRAG**：Neo4j 知识图谱、实体关系扩展、图证据可视化
+- **Agentic RAG**：多阶段 Agent 协作与受控工具调用
+- **可追溯回答**：引用原始文档 Chunk，支持引用正确性校验
+- **记忆系统**：工作、情景、用户、组织和学习记忆分层治理
+- **反馈自进化**：Skills / Hooks / Rules、人工审核、灰度和回滚
+- **工程化评测**：Recall@K、MRR、nDCG、证据完整率、Graph Rescue、P50/P95 时延
+- **完整部署**：FastAPI、Next.js、MongoDB、Redis、Neo4j、Docker Compose
+
+## 架构组件
+
+```text
+Next.js Web
+    ↓ REST
+FastAPI / Python Harness ───── pi-agent Runtime
+    ├── MongoDB：文档、Chunk、向量、事实与记忆
+    ├── Redis：会话状态与异步作业队列
+    ├── Neo4j：GraphRAG 图投影与图查询
+    └── Loop Engine：反馈、评测、策略版本与灰度发布
+```
+
+| 组件 | 作用 |
+|---|---|
+| `backend/` | FastAPI、文档处理、检索、Harness、记忆和 Loop |
+| `services/pi-agent/` | pi-agent Runtime 与 Agent 协作执行 |
+| `web/` | Next.js 聊天界面、管理台、评测和图谱视图 |
+| `graphrag/` | GraphRAG 配置、Prompt 与构图工作区 |
+| `third_party/microsoft-graphrag/` | Microsoft GraphRAG 源码镜像 |
+| `demo_data/` | 一份项目自行编写的虚构演示文档 |
 
 ## 快速启动
 
@@ -23,7 +103,7 @@ GraphRAG 的线上适配位于 `backend/app/graph/`；Microsoft GraphRAG 的源�
 git clone <your-repository-url> ilan
 cd ilan
 cp .env.example .env
-# 编辑 .env：至少填写 DEEPSEEK_* 与 RELAY_*，并替换所有 replace-with-* 密码/密钥
+# 分别填写对话模型 DEEPSEEK_* 与 Embedding/重排 RELAY_* 配置
 docker compose up --build -d
 docker compose ps
 ```
@@ -32,26 +112,28 @@ docker compose ps
 
 - Web：<http://localhost:8080>
 - API 文档：<http://localhost:8000/docs>
-- Neo4j Browser：<http://localhost:7474>（仅绑定本机）
+- Neo4j Browser：<http://localhost:7474>
 
-演示账号仅在 `SEED_DEMO_USERS=true` 时创建：`admin / admin123`。公网部署前应关闭该开关并创建自己的管理员。
+演示账号仅在 `SEED_DEMO_USERS=true` 时创建：`admin / admin123`。公网部署前请关闭演示账号并替换所有默认密钥。
 
-## 导入唯一示例知识库
+## 导入示例文档
 
-Compose 启动后，示例文档会以只读方式挂载到 `/app/demo_data`，不会自动进入数据库。执行以下命令显式导入：
+示例文档不会在启动时自动写入数据库。启动完成后，显式执行：
 
 ```bash
 docker compose exec backend python -m scripts.seed_data
 docker compose exec backend python -m scripts.ingest_department_files --base /app/demo_data
 ```
 
-然后在 Web 中以管理员身份上传其他已获授权的文档，或就示例内容提问，例如“课程满额后怎么办？”、“成绩复核的时限是多久？”。
+随后可以在 Web 中提问：“课程满额后怎么办？”、“成绩复核的时限是多久？”。
 
-## 图增强与评测
+## GraphRAG 与评测
 
-默认 `GRAPH_ENABLED=false`，普通 RAG 可直接运行。准备好 Neo4j 和 GraphRAG 投影后，再设置 `GRAPH_ENABLED=true` 并重启服务；不可用时系统会记录/提示未经过图增强，避免误导。
+默认 `GRAPH_ENABLED=false`，先使用普通 RAG 验证系统。准备好授权文档、GraphRAG 投影和 Neo4j 后，再设置 `GRAPH_ENABLED=true` 并重启服务。详细流程见 [graphrag/README.md](graphrag/README.md)。
 
-公开版带有 6 条虚构示例评测题，可在超级管理员的 RAG 评测页运行 Graph off/on 对照。指标与自建金标方法见 [backend/evaluation/README.md](backend/evaluation/README.md)。示例结果只用于链路验证，不能用于宣称真实业务质量。
+公开版提供一份基于虚构示例文档的 6 题评测集，用于验证 Graph off/on 链路。两组固定模型、Embedding、Reranker、Prompt 和 Top-K，仅切换图增强开关。
+
+评测支持 Recall@K、MRR、nDCG@K、引用正确率、答案关键项覆盖率、证据集完整率、图证据精度、图路径有效率、Bridge 命中率、Graph Rescue、失败率和 P50/P95 时延。示例结果只用于验证软件链路，不能代表真实业务效果。
 
 ## 开发与验证
 
@@ -68,13 +150,19 @@ cd ../web
 npm ci
 npm run build
 
-# Compose 配置
-cd ..
+# pi-agent
+cd ../services/pi-agent
+npm ci
+npm run build
+
+# Compose 配置检查
+cd ../..
 docker compose config
 ```
 
 ## 发布边界
 
-- 不提交 `.env`、API Key、Mongo/Redis/Neo4j 卷、上传文件、真实政策/手册或运行日志。
+- 不提交 `.env`、API Key、数据库卷、上传文件或真实政策/手册。
 - 不提交 `graphrag/input`、`output`、`cache`、`runs`、`artifacts`、`backups` 等语料衍生物。
-- 对真实知识库自行建立独立评测集：题干保持自然、金标不发送给模型、固定语料与模型配置后再比较 Graph off/on。
+- 公开仓库只保留虚构示例文档；真实知识库请在本地或私有部署中导入。
+- 所有组织知识应绑定有效文档 Chunk，并遵循权限、版本和归档治理。
