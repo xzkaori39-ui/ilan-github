@@ -1,0 +1,44 @@
+[
+  {
+    "id": "demo-course-registration-window",
+    "dept_id": "dept_all",
+    "query": "示例系统的课程注册开放到什么时候？",
+    "relevant_files": ["campus_service_demo.md"],
+    "expected_terms": ["周一 09:00", "周三 17:00"]
+  },
+  {
+    "id": "demo-course-waitlist",
+    "dept_id": "dept_all",
+    "query": "想选的课满了以后，我应该怎么处理？",
+    "relevant_files": ["campus_service_demo.md"],
+    "expected_terms": ["候补队列", "系统通知"]
+  },
+  {
+    "id": "demo-grade-review-window",
+    "dept_id": "dept_all",
+    "query": "我觉得成绩录入有误，多久内可以申请复核？",
+    "relevant_files": ["campus_service_demo.md"],
+    "expected_terms": ["5 个工作日", "成绩复核"]
+  },
+  {
+    "id": "demo-leave-request",
+    "dept_id": "dept_all",
+    "query": "因事离开校园前需要完成什么手续？",
+    "relevant_files": ["campus_service_demo.md"],
+    "expected_terms": ["离校申请", "指导老师"]
+  },
+  {
+    "id": "demo-major-change",
+    "dept_id": "dept_all",
+    "query": "申请调整专业时，学校主要审核哪些条件？",
+    "relevant_files": ["campus_service_demo.md"],
+    "expected_terms": ["课程容量", "学业记录"]
+  },
+  {
+    "id": "demo-study-suspension",
+    "dept_id": "dept_all",
+    "query": "需要暂缓学习时，申请材料和流程是什么？",
+    "relevant_files": ["campus_service_demo.md"],
+    "expected_terms": ["证明材料", "学籍系统"]
+  }
+]
