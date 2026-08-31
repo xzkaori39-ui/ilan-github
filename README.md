@@ -51,6 +51,8 @@ Agentic RAG：意图识别、改写、检索、回答、校验、反思
 
 Python Harness 和 pi-agent Runtime 协同完成 Intent、Rewrite、Retrieval、Answer、Verify、Reflect 等阶段。Python 侧负责权限、事实源、流程编排和策略约束；pi-agent 负责受控的 Agent loop、模型调用和工具调用。
 
+在 Agentic RAG 的固定 DAG 跑稳之后，我没有把 GraphRAG 当成一条替代链路删掉，而是把它留在 Retrieval 后面做受控的证据扩展。因为制度问题很多时候不是某一条条款能单独回答：比如问“跨学院转专业后原来的选课和奖学金资格怎么处理”，关键词检索能找到几个相关片段，但不一定能识别“学生—学院—专业—学籍状态—奖学金办法”之间的关系。离线阶段我用 Microsoft GraphRAG 从已授权文本块抽取实体、关系、文本单元和社区，再把轻量图投影导入 Neo4j；在线阶段先走原来的 BM25、向量和 Reranker 找到种子 Chunk，再按实体和关系扩展少量跨文档候选，最后仍然回 MongoDB 校验 `doc_id/chunk_id/version`、文档是否 `active`，只把能回到原文的条款放进证据集。这样图谱负责补齐跨文档证据链和发现实体间的间接关系，Agentic RAG 负责在固定边界内编排和校验，两者都不直接替代官方事实；Neo4j 或图投影不可用时就记录状态并回退到原有混合 RAG，不影响正常问答。
+
 ### 4. 记忆与自进化：让系统从反馈中改进
 
 iLAN 将不同生命周期和可信等级的知识分层管理：
