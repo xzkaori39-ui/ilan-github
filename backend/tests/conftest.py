@@ -7,6 +7,8 @@ import os
 # keeps TestClient and its storage operations on an in-process test backend.
 os.environ["STORAGE_MODE"] = "memory"
 os.environ["EMBEDDING_PROVIDER"] = "hash"
+os.environ["EMBEDDING_DIM"] = "128"
+os.environ["VECTOR_BACKEND"] = "memory"
 os.environ["GRAPH_ENABLED"] = "false"
 os.environ["PI_AGENT_ENABLED"] = "false"
 

@@ -87,6 +87,10 @@ class Settings(BaseSettings):
 
     # ---- 检索 ----
     vector_backend: str = "memory"  # memory | mongo | chroma | milvus
+    milvus_uri: str = "http://localhost:19530"
+    milvus_collection: str = "ilan_chunks"
+    milvus_dimension: int = 3072
+    milvus_token: str = ""
     hybrid_topk: int = 5
     bm25_top: int = 20
     vector_top: int = 20

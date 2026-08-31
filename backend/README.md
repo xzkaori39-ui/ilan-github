@@ -48,6 +48,7 @@ backend/
 - Python 3.9+（推荐 3.11）
 - MongoDB 7.0（可选，`STORAGE_MODE=memory` 时无需）
 - Redis 7（可选，memory 模式回退内存）
+- Milvus 2.4（可选；`VECTOR_BACKEND=milvus` 时启用，Compose 会自动启动 etcd/MinIO）
 
 ## 安装
 
@@ -77,7 +78,7 @@ uvicorn app.main:app --reload --port 8000
 
 ### 可选依赖
 
-- 向量检索：`pip install chromadb`（或设置 `VECTOR_BACKEND=chroma`）
+- 向量检索：Milvus（`VECTOR_BACKEND=milvus`）或 Chroma（`pip install chromadb`）
 - 本地向量：`pip install sentence-transformers`（`EMBEDDING_PROVIDER=local`）
 - OCR 扫描件：`pip install paddleocr paddlepaddle`（体积大，按需）
 
@@ -89,6 +90,8 @@ uvicorn app.main:app --reload --port 8000
 | `RELAY_API_KEY` / `RELAY_BASE_URL` | 中转站（OpenAI 兼容），用于 bge 等非 DeepSeek 模型 |
 | `EMBEDDING_PROVIDER` / `EMBEDDING_MODEL` | `relay`(`text-embedding-3-large`) / `local` / `hash` |
 | `STORAGE_MODE` | `mongo` / `memory` |
+| `VECTOR_BACKEND` | `mongo`（默认）/ `milvus` / `chroma` / `memory` |
+| `MILVUS_URI` / `MILVUS_COLLECTION` / `MILVUS_DIMENSION` | Milvus 连接、集合名与向量维度；维度必须匹配 Embedding |
 | `LOOP_PHASE` | `human_in_loop` / `human_on_loop` / `human_out_of_loop` |
 | `AUTH_SECRET` | Token 签名密钥（生产务必修改） |
 | `REVIEW_QUESTION_COUNT` / `REVIEW_ACCURACY_THRESHOLD` / `REVIEW_MIN_SAMPLES` | 人工审核 Loop：出题数 / 退出阈值 / 最小样本 |

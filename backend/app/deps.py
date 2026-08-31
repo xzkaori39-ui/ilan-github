@@ -115,7 +115,14 @@ def build_container(settings: Optional[Settings] = None) -> Container:
     embeddings = EmbeddingClient(settings, relay)
     pi_runtime = PiAgentRuntimeClient(settings)
 
-    vector_store = build_vector_store(settings.vector_backend, store)
+    vector_store = build_vector_store(
+        settings.vector_backend,
+        store,
+        milvus_uri=settings.milvus_uri,
+        milvus_collection=settings.milvus_collection,
+        milvus_dimension=settings.milvus_dimension or settings.embedding_dim,
+        milvus_token=settings.milvus_token,
+    )
     graph_store = GraphStore(
         enabled=settings.graph_enabled,
         uri=settings.neo4j_uri,

@@ -1,4 +1,4 @@
-"""i兰 / iLAN 后端入口（FastAPI）。"""
+"""文枢后端入口（FastAPI）。"""
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
@@ -15,6 +15,38 @@ from app.utils.logging import get_logger, setup_logging
 from app.loop.default_skills import seed_default_skills
 
 logger = get_logger(__name__)
+
+
+async def hydrate_milvus_vectors(store, vector_store, embeddings, chunks, dimension: int) -> tuple[int, int]:
+    """将已有 Mongo 向量迁移到 Milvus，仅为确实缺失的 Chunk 调用 Embedding API。"""
+    saved = {row.get("_id"): row.get("vector") for row in await store.find("vector_embeddings")}
+    missing: list[dict] = []
+    pending: list[dict] = []
+    reused = 0
+    for chunk in chunks:
+        vector = saved.get(chunk["embedding_id"])
+        metadata = {
+            "doc_id": chunk["doc_id"], "dept_id": chunk["dept_id"], "chunk_index": chunk["chunk_index"],
+        }
+        if isinstance(vector, list) and len(vector) == dimension:
+            pending.append({"id": chunk["embedding_id"], "vector": vector, **metadata})
+            reused += 1
+        else:
+            missing.append(chunk)
+
+    if missing:
+        vectors = await embeddings.embed([chunk["content"] for chunk in missing])
+        for chunk, vector in zip(missing, vectors):
+            pending.append({
+                "id": chunk["embedding_id"], "vector": vector,
+                "doc_id": chunk["doc_id"], "dept_id": chunk["dept_id"], "chunk_index": chunk["chunk_index"],
+            })
+    if hasattr(vector_store, "add_many"):
+        await vector_store.add_many(pending)
+    else:
+        for row in pending:
+            await vector_store.add(row.pop("id"), row.pop("vector"), row)
+    return reused, len(missing)
 
 
 @asynccontextmanager
@@ -56,7 +88,14 @@ async def lifespan(app: FastAPI):
             for c in chunks:
                 container.bm25.add(c)
             # 共享 Mongo 向量库已持久化，无需每个 Pod 启动时重复嵌入全量文档。
-            if settings.vector_backend != "mongo":
+            # 切 Milvus 时优先复制已有 Mongo 向量，避免一次迁移重新消耗 Embedding API 配额。
+            actual_vector_backend = getattr(container.vector_store, "backend_name", settings.vector_backend)
+            if actual_vector_backend == "milvus":
+                reused, embedded = await hydrate_milvus_vectors(
+                    container.store, container.vector_store, container.embeddings, chunks, settings.milvus_dimension,
+                )
+                logger.info("Milvus 向量同步完成: %d 复用，%d 新嵌入", reused, embedded)
+            elif actual_vector_backend != "mongo":
                 texts = [c["content"] for c in chunks]
                 vectors = await container.embeddings.embed(texts)
                 for c, v in zip(chunks, vectors):

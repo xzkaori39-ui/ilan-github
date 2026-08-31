@@ -21,6 +21,7 @@ neo4j-graphrag>=1.18,<2
 # ---- 检索 ----
 # Chroma 为可选：本地向量检索（开发零运维）。生产可切 Milvus。
 chromadb>=0.5
+pymilvus>=2.4,<3
 
 # ---- 文档解析 ----
 # PDF 用 pypdf/pdfplumber；Word 用 python-docx；扫描 PDF 由本地中文 OCR 识别

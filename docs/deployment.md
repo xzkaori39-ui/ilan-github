@@ -8,6 +8,10 @@ cp .env.example .env     # 填写密钥
 docker compose up --build
 ```
 
+Compose 同时编排 MongoDB、Redis、Neo4j 以及可选的 Milvus standalone（etcd + MinIO）。
+默认 `VECTOR_BACKEND=mongo`；将其改为 `milvus` 可启用原生向量索引。Milvus 初始化失败时
+后端自动回退 Mongo 并记录日志。
+
 ## 2. 生产部署（K8s）
 
 `deploy/` 目录提供：
@@ -38,7 +42,7 @@ helm upgrade --install dept-agent-x deploy/helm/wenshu -n wenshu \
 | 设计点 | 实现 |
 |---|---|
 | 部门级隔离 | 独立 Deployment + HPA，Pod 反亲和 |
-| 共享检索 | Mongo 共享向量 + 基于 active chunks 的无状态 BM25，避免 Pod 索引漂移 |
+| 共享检索 | Mongo 共享向量（默认）或 Milvus 原生向量索引 + 基于 active chunks 的无状态 BM25 |
 | 异步处理 | 入库/反馈唤醒/Loop 走 Redis Stream；上传文件由 backend/worker 共享 RWX PVC |
 | 会话记忆 | Redis TTL 状态只保存摘要、实体和 chunk ID；长期事件进入 Mongo TTL 集合 |
 | 限流降级 | Ingress 限流；部门服务失败时使用共享检索降级并标记 degraded departments |

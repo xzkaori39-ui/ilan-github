@@ -108,6 +108,11 @@ docker compose up --build -d
 docker compose ps
 ```
 
+默认使用 Mongo 向量存储，适合快速演示。需要规模化原生向量检索时，将 `.env` 中
+`VECTOR_BACKEND=milvus`（并确保 `MILVUS_DIMENSION` 与 `EMBEDDING_DIM` 一致），Compose
+会同时启动 Milvus、etcd 与 MinIO。Milvus 暂时不可用时，后端会记录 warning 并回退 Mongo，
+不会把失败静默降级为内存库。
+
 访问：
 
 - Web：<http://localhost:8080>
@@ -124,6 +129,8 @@ docker compose ps
 docker compose exec backend python -m scripts.seed_data
 docker compose exec backend python -m scripts.ingest_department_files --base /app/demo_data
 ```
+
+首次导入后可切换 `VECTOR_BACKEND=milvus` 并重启后端；已有文档重新向量化写入 Milvus。
 
 随后可以在 Web 中提问：“课程满额后怎么办？”、“成绩复核的时限是多久？”。
 

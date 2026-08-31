@@ -4,6 +4,8 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
+from urllib.parse import urlsplit
+from urllib.request import urlopen
 
 from app.config import get_settings
 
@@ -39,11 +41,30 @@ async def wait_redis(addr: str, timeout: float = 30.0) -> None:
     print("Redis 未就绪（继续启动）")
 
 
+async def wait_milvus(uri: str, timeout: float = 60.0) -> None:
+    """等待 Milvus health endpoint；失败时继续启动，由向量库工厂负责回退。"""
+    parsed = urlsplit(uri)
+    host = parsed.hostname or "localhost"
+    health_url = f"http://{host}:9091/healthz"
+    deadline = asyncio.get_event_loop().time() + timeout
+    while asyncio.get_event_loop().time() < deadline:
+        try:
+            with urlopen(health_url, timeout=2) as response:  # noqa: S310
+                if response.status < 400:
+                    print("Milvus ready")
+                    return
+        except Exception:
+            await asyncio.sleep(2)
+    print("Milvus 未就绪（继续启动，服务会回退 Mongo）")
+
+
 async def main() -> None:
     settings = get_settings()
     if settings.storage_mode == "mongo":
         await wait_mongo(settings.mongodb_uri)
         await wait_redis(settings.redis_addr)
+    if settings.vector_backend == "milvus":
+        await wait_milvus(settings.milvus_uri)
 
 
 if __name__ == "__main__":

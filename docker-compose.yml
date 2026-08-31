@@ -37,6 +37,58 @@ services:
       timeout: 5s
       retries: 5
 
+  # Milvus standalone 依赖 etcd（元数据）与 MinIO（对象存储）。
+  # 默认后端仍为 Mongo；需要原生向量检索时设置 VECTOR_BACKEND=milvus。
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.5
+    container_name: ilan-etcd
+    restart: unless-stopped
+    environment:
+      ETCD_AUTO_COMPACTION_MODE: revision
+      ETCD_AUTO_COMPACTION_RETENTION: 1000
+      ETCD_QUOTA_BACKEND_BYTES: 4294967296
+      ETCD_SNAPSHOT_COUNT: 50000
+    command: >-
+      etcd
+      --advertise-client-urls=http://etcd:2379
+      --listen-client-urls=http://0.0.0.0:2379
+      --data-dir=/etcd
+    volumes:
+      - etcd_data:/etcd
+
+  minio:
+    image: minio/minio:RELEASE.2023-03-20T20-16-18Z
+    container_name: ilan-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+    command: minio server /minio_data --console-address ":9001"
+    volumes:
+      - minio_data:/minio_data
+
+  milvus:
+    image: milvusdb/milvus:v2.4.15
+    container_name: ilan-milvus
+    restart: unless-stopped
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+    ports:
+      - "127.0.0.1:19530:19530"
+      - "127.0.0.1:9091:9091"
+    volumes:
+      - milvus_data:/var/lib/milvus
+    depends_on:
+      - etcd
+      - minio
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
   neo4j:
     image: neo4j:5.26-community
     container_name: ilan-neo4j
@@ -65,7 +117,10 @@ services:
       REDIS_ADDR: redis://:${REDIS_PASSWORD:-wenshu}@redis:6379
       PI_AGENT_URL: http://pi-agent:8100
       PI_AGENT_ENABLED: "true"
-      VECTOR_BACKEND: mongo
+      VECTOR_BACKEND: ${VECTOR_BACKEND:-mongo}
+      MILVUS_URI: http://milvus:19530
+      MILVUS_COLLECTION: ${MILVUS_COLLECTION:-ilan_chunks}
+      MILVUS_DIMENSION: ${MILVUS_DIMENSION:-1024}
       HOST: 0.0.0.0
       PORT: 8000
       UPLOAD_STORAGE_DIR: /data/uploads
@@ -75,6 +130,8 @@ services:
       mongodb:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      milvus:
         condition: service_healthy
     volumes:
       - ./demo_data:/app/demo_data:ro
@@ -92,12 +149,17 @@ services:
       MONGODB_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-wenshu}:${MONGO_INITDB_ROOT_PASSWORD:-wenshu}@mongodb:27017/${MONGODB_DB:-wenshu}?authSource=admin
       REDIS_ADDR: redis://:${REDIS_PASSWORD:-wenshu}@redis:6379
       STORAGE_MODE: mongo
-      VECTOR_BACKEND: mongo
+      VECTOR_BACKEND: ${VECTOR_BACKEND:-mongo}
+      MILVUS_URI: http://milvus:19530
+      MILVUS_COLLECTION: ${MILVUS_COLLECTION:-ilan_chunks}
+      MILVUS_DIMENSION: ${MILVUS_DIMENSION:-1024}
       UPLOAD_STORAGE_DIR: /data/uploads
     depends_on:
       mongodb:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      milvus:
         condition: service_healthy
     volumes:
       - upload_data:/data/uploads
@@ -144,3 +206,6 @@ volumes:
   upload_data:
   neo4j_data:
   neo4j_logs:
+  etcd_data:
+  minio_data:
+  milvus_data:
